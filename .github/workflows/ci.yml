@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch/PR cancels the run that's still going
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (build + test)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: loadbalancer
+
+    services:
+      # The Spring context test connects to MySQL on startup
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-password
+          MYSQL_DATABASE: appdb
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-password"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s --health-timeout=5s --health-retries=10
+
+    env:
+      DB_URL: jdbc:mysql://127.0.0.1:3306/appdb
+      DB_USERNAME: root
+      DB_PASSWORD: ci-password
+      REDIS_HOST: 127.0.0.1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle (with dependency cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Apply database schema
+        run: |
+          mysql -h 127.0.0.1 -uroot -pci-password appdb -e "
+            CREATE TABLE IF NOT EXISTS url_shortner (
+              id BIGINT NOT NULL AUTO_INCREMENT,
+              original_url VARCHAR(255) DEFAULT NULL,
+              short_url VARCHAR(255) DEFAULT NULL,
+              PRIMARY KEY (id));"
+          mysql -h 127.0.0.1 -uroot -pci-password appdb < migration.sql
+          mysql -h 127.0.0.1 -uroot -pci-password appdb < migration_002_owner_scoping.sql
+
+      - name: Build and test
+        run: ./gradlew build --no-daemon
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: loadbalancer/build/reports/tests/
+          retention-days: 7
+
+      - name: Upload jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: loadbalancer/build/libs/*-SNAPSHOT.jar
+          retention-days: 7
+
+  frontend:
+    name: Frontend (test + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Ubuntu 24.04 blocks the unprivileged user namespaces Chrome's sandbox needs
+      - name: Allow headless Chrome sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Unit tests
+        run: npx ng test --watch=false --browsers=ChromeHeadless
+
+      - name: Production build
+        run: npx ng build --configuration production
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/frontend/
+          retention-days: 7
+
+  nginx:
+    name: Nginx config check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: nginx -t
+        run: |
+          docker run --rm \
+            -v "$PWD/loadbalancer/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:stable nginx -t -c /etc/nginx/nginx.conf
+
+  scripts:
+    name: lb.ps1 syntax check
+    # Windows PowerShell 5.1 is what lb.ps1 targets
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse lb.ps1
+        shell: powershell
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD\loadbalancer\lb.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) {
+            $errors | ForEach-Object { Write-Host "::error file=loadbalancer/lb.ps1,line=$($_.Extent.StartLineNumber)::$($_.Message)" }
+            exit 1
+          }
+          Write-Host "lb.ps1 parses cleanly"

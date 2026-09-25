@@ -1,0 +1,65 @@
+name: Release
+
+# Push a version tag to publish a GitHub Release with the built backend jar and
+# frontend bundle attached:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write   # needed to create the release
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Tests already ran in CI on the tagged commit; this only packages it
+      - name: Build backend jar
+        working-directory: loadbalancer
+        run: ./gradlew bootJar --no-daemon
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npx ng build --configuration production
+
+      - name: Package artifacts
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          mkdir -p dist
+          cp loadbalancer/build/libs/*-SNAPSHOT.jar "dist/loadbalancer-${VERSION}.jar"
+          tar -czf "dist/frontend-${VERSION}.tar.gz" -C frontend/dist/frontend .
+          # Ops files needed to run the jar behind nginx
+          zip -j "dist/ops-${VERSION}.zip" loadbalancer/lb.ps1 loadbalancer/nginx.conf \
+            loadbalancer/.env.example loadbalancer/migration.sql loadbalancer/migration_002_owner_scoping.sql
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

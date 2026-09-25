@@ -20,6 +20,7 @@ The whole stack is managed with a single PowerShell command, `lb.ps1`, which sup
 - [API reference](#api-reference)
 - [How it works](#how-it-works)
 - [Load balancer behaviour](#load-balancer-behaviour)
+- [CI/CD](#cicd)
 - [Troubleshooting](#troubleshooting)
 
 ---
@@ -338,6 +339,38 @@ Configured in [`loadbalancer/nginx.conf`](loadbalancer/nginx.conf):
   ```
 
 - **Graceful rolling restarts**: `lb.ps1 restart` stops one instance at a time through Spring's graceful shutdown. Nginx routes around it while it's down. In testing, 976 requests sent during a full rolling restart all returned `200`.
+
+## CI/CD
+
+GitHub Actions workflows live in [`.github/workflows/`](.github/workflows/).
+
+### CI: [`ci.yml`](.github/workflows/ci.yml)
+
+Runs on every push and pull request to `main` or `master`. You can also run it by hand from the Actions tab. The four jobs run in parallel:
+
+| Job | What it checks |
+| --- | --- |
+| **Backend** | Starts MySQL 8 and Redis 7 as service containers, applies the schema and both migrations, then runs `./gradlew build` (compile, tests, jar). Uploads the jar, and the test reports if anything fails. |
+| **Frontend** | `npm ci`, the unit tests in headless Chrome, and a production build. Uploads `dist/`. |
+| **Nginx** | `nginx -t` on `nginx.conf`, run in the official nginx image. |
+| **Scripts** | Parses `lb.ps1` under Windows PowerShell 5.1. |
+
+If you push again while a run is still going, the older run is cancelled.
+
+### Release: [`release.yml`](.github/workflows/release.yml)
+
+Pushing a version tag creates a GitHub Release with the build outputs attached:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The release includes `loadbalancer-v1.0.0.jar`, `frontend-v1.0.0.tar.gz`, an `ops-v1.0.0.zip` (containing `lb.ps1`, `nginx.conf`, `.env.example` and the migrations), `SHA256SUMS.txt`, and auto-generated release notes.
+
+### Dependabot: [`dependabot.yml`](.github/dependabot.yml)
+
+Every week, Dependabot opens pull requests for outdated Gradle, npm and GitHub Actions dependencies, and CI tests each one. Angular packages are grouped into a single PR, since they have to be upgraded together.
 
 ## Troubleshooting
 

@@ -1,0 +1,23 @@
+# Opens weekly PRs for outdated dependencies; each PR is checked by CI.
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /loadbalancer
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Angular packages must move together
+      angular:
+        patterns: ["@angular/*", "@angular-devkit/*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
