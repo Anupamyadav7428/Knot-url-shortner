@@ -1,0 +1,303 @@
+<div class="page" [class.dark]="theme === 'dark'">
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"></path>
+          <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.5-1.5"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Knot</span>
+    </div>
+
+    <nav class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#">Pricing</a>
+    </nav>
+
+    <div class="topbar-actions">
+      <button
+        type="button"
+        class="theme-toggle"
+        (click)="toggleTheme()"
+        [attr.aria-label]="theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+      >
+        @if (theme === 'dark') {
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+          </svg>
+        } @else {
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"></path>
+          </svg>
+        }
+      </button>
+      <button type="button" class="ghost-btn">Log in</button>
+      <button type="button" class="primary-btn small">Sign up</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <section class="hero">
+      <h1>Short links, big impact.</h1>
+      <p class="hero-subtitle">Paste a long URL and get a short one you can share and track.</p>
+    </section>
+
+    <section class="shorten-card" aria-label="Shorten a URL">
+      <form class="shorten-form" (ngSubmit)="shorten()" novalidate>
+        <div class="field field-url">
+          <label for="originalUrl">Long URL</label>
+          <div class="input-wrap" [class.invalid]="urlField.dirty && urlField.errors?.['pattern']">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"></path>
+              <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.5-1.5"></path>
+            </svg>
+            <input
+              id="originalUrl"
+              type="url"
+              name="originalUrl"
+              #urlField="ngModel"
+              placeholder="https://example.com/a/very/long/link"
+              [(ngModel)]="originalUrl"
+              pattern="https?://.+"
+              required
+              [disabled]="loading"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+
+        <div class="field field-alias">
+          <label for="alias">Custom alias (optional)</label>
+          <div class="input-wrap alias-wrap">
+            <span class="alias-prefix">knot.to/</span>
+            <input
+              id="alias"
+              type="text"
+              name="alias"
+              placeholder="launch"
+              [(ngModel)]="alias"
+              pattern="[a-zA-Z0-9_-]{3,30}"
+              [disabled]="loading"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </div>
+        </div>
+
+        <button type="submit" class="primary-btn shorten-btn" [disabled]="loading || !originalUrl.trim()">
+          @if (loading) {
+            <span class="spinner" aria-hidden="true"></span>
+            <span>Shortening…</span>
+          } @else {
+            <span>Shorten</span>
+          }
+        </button>
+      </form>
+
+      <div class="form-footer">
+        @if (urlField.dirty && urlField.errors?.['pattern']) {
+          <p class="field-error" role="alert">Enter a valid URL starting with http:// or https://</p>
+        } @else {
+          <p class="hint">No account needed. Anyone with the link can use it.</p>
+        }
+        <p class="hint kbd-hint"><kbd>Enter</kbd> to shorten</p>
+      </div>
+
+      @if (errorMessage) {
+        <p class="form-error" role="alert">{{ errorMessage }}</p>
+      }
+    </section>
+
+    <section class="links-section">
+      <div class="section-header">
+        <h2>Recent links</h2>
+        <p class="section-subtitle">Your last few short links, newest first.</p>
+      </div>
+
+      @if (linksLoaded && links.length === 0) {
+        <div class="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"></path>
+            <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.5-1.5"></path>
+          </svg>
+          <p>No links yet. Shorten your first URL above.</p>
+        </div>
+      } @else if (links.length > 0) {
+        <div class="links-table" role="table">
+          <div class="links-row links-head" role="row">
+            <span role="columnheader">Short link</span>
+            <span role="columnheader">Original</span>
+            <span role="columnheader" class="col-clicks">Clicks</span>
+            <span role="columnheader" class="col-created">Created</span>
+            <span role="columnheader" class="col-actions"></span>
+          </div>
+          @for (link of links; track trackByCode($index, link)) {
+            <div class="links-row" role="row" [class.just-created]="justCreatedCode === link.code">
+              <span class="cell-short" role="cell">
+                <a [href]="link.shortUrl" target="_blank" rel="noopener">knot.to/{{ link.code }}</a>
+              </span>
+              <span class="cell-original" role="cell" [title]="link.originalUrl">{{ link.originalUrl }}</span>
+              <span class="cell-clicks" role="cell">
+                <span class="badge">{{ link.clicks }}</span>
+              </span>
+              <span class="cell-created" role="cell">{{ formatDate(link.createdAt) }}</span>
+              <span class="cell-actions" role="cell">
+                <button
+                  type="button"
+                  class="icon-btn"
+                  [class.copied]="copiedCode === link.code"
+                  (click)="copyLink(link)"
+                  [attr.aria-label]="'Copy knot.to/' + link.code"
+                >
+                  @if (copiedCode === link.code) {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M20 6 9 17l-5-5"></path>
+                    </svg>
+                  } @else {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <rect x="9" y="9" width="12" height="12" rx="2"></rect>
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                  }
+                </button>
+                <button
+                  type="button"
+                  class="icon-btn danger"
+                  (click)="removeLink(link)"
+                  [attr.aria-label]="'Remove knot.to/' + link.code"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 6h18"></path>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
+                  </svg>
+                </button>
+              </span>
+            </div>
+          }
+        </div>
+      }
+    </section>
+
+    <section class="features-section" id="features">
+      <div class="section-header">
+        <h2>Everything a link needs</h2>
+        <p class="section-subtitle">Start free with the basics. More is on the way.</p>
+      </div>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <span class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg>
+          </span>
+          <h3>Custom aliases</h3>
+          <p>Pick a word people can read aloud, like knot.to/launch.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>
+          </span>
+          <h3>Click analytics</h3>
+          <p>See real click totals per link and daily trends across all links.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="soon-badge">Coming soon</span>
+          <span class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect><path d="M14 14h3v3h-3zM19 14h2v2h-2zM14 19h2v2h-2zM19 19h2v2h-2z"></path></svg>
+          </span>
+          <h3>QR codes</h3>
+          <p>Every link with a QR code ready for posters, menus and slides.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="soon-badge">Coming soon</span>
+          <span class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>
+          </span>
+          <h3>Link expiry</h3>
+          <p>Set a date or a click limit, and the link retires itself.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="soon-badge">Coming soon</span>
+          <span class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z"></path></svg>
+          </span>
+          <h3>Branded domains</h3>
+          <p>Use go.yourcompany.com so every link carries your name.</p>
+        </div>
+
+        <div class="feature-card">
+          <span class="soon-badge">Coming soon</span>
+          <span class="feature-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>
+          </span>
+          <h3>API access</h3>
+          <p>Create and manage links from your own code with one REST call.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="analytics-section" id="analytics">
+      <div class="section-header">
+        <h2>Know what gets clicked</h2>
+        <p class="section-subtitle">Real clicks across all your links for the last 7 days.</p>
+      </div>
+
+      <div class="analytics-card">
+        <div class="analytics-total">
+          <span class="analytics-number">{{ totalClicksLast7Days | number }}</span>
+          <span class="analytics-label">Clicks, last 7 days</span>
+        </div>
+
+        <div class="chart-wrap">
+          <svg class="chart" viewBox="0 0 600 160" preserveAspectRatio="none">
+            <line x1="0" y1="30" x2="600" y2="30" class="chart-gridline"></line>
+            <line x1="0" y1="90" x2="600" y2="90" class="chart-gridline"></line>
+            <path [attr.d]="chartAreaPath" class="chart-area"></path>
+            <path [attr.d]="chartLinePath" class="chart-line"></path>
+            @for (point of chartPoints; track point.label) {
+              <circle [attr.cx]="point.x" [attr.cy]="point.y" r="4" class="chart-dot"></circle>
+            }
+          </svg>
+          <div class="chart-axis">
+            @for (point of chartPoints; track point.label) {
+              <div class="chart-axis-item">
+                <span class="chart-value">{{ point.value }}</span>
+                <span class="chart-day">{{ point.label }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07l-1.5 1.5"></path>
+          <path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l1.5-1.5"></path>
+        </svg>
+      </span>
+      <span class="brand-name">Knot</span>
+    </div>
+    <nav class="footer-links">
+      <a href="#features">Features</a>
+      <a href="#">Pricing</a>
+      <a href="#">API docs</a>
+      <a href="#">Status</a>
+      <a href="#">Privacy</a>
+      <a href="#">Terms</a>
+    </nav>
+    <span class="footer-copy">© {{ currentYear }} Knot. All rights reserved.</span>
+  </footer>
+</div>

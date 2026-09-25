@@ -1,0 +1,46 @@
+# ---------------------------------------------------------------- editors / tools
+.vscode/
+.idea/
+*.iml
+*.iws
+*.ipr
+.claude/
+.history/
+*.sublime-workspace
+
+# ---------------------------------------------------------------- OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------- secrets
+# Real config lives in .env; .env.example is the committed template.
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------- logs
+*.log
+*.log.err
+
+# ---------------------------------------------------------------- backend (Gradle / Spring Boot)
+loadbalancer/.gradle/
+loadbalancer/build/
+loadbalancer/bin/
+loadbalancer/out/
+loadbalancer/HELP.md
+!loadbalancer/gradle/wrapper/gradle-wrapper.jar
+
+# Created by lb.ps1 at runtime
+loadbalancer/releases/
+loadbalancer/run-logs/
+loadbalancer/run-pids.txt
+
+# ---------------------------------------------------------------- frontend (Angular / Node)
+node_modules/
+frontend/.angular/
+frontend/dist/
+frontend/out-tsc/
+frontend/coverage/
+npm-debug.log*
+yarn-error.log*
