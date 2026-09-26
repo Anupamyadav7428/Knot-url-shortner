@@ -1,0 +1,1 @@
+window.__KNOT_CONFIG__ = Object.freeze({ apiBaseUrl: 'http://localhost:9090' });
