@@ -1,0 +1,7 @@
+.env
+.gradle
+build
+releases
+run-logs
+bin
+*.log
