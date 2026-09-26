@@ -1,6 +1,9 @@
 package com.example.loadbalancer.controller;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 public class ShortenRequest {
+    @JsonAlias("url")
     private String originalUrl;
     private String alias;
 

@@ -57,7 +57,7 @@ function Get-Setting($name, $default) {
 }
 
 $ProjectDir     = $PSScriptRoot
-$JavaHome       = Get-Setting "LB_JAVA_HOME" "C:\Program Files\Java\jdk-21.0.10"
+$JavaHome       = Get-Setting "LB_JAVA_HOME" "C:\Program Files\Java\jdk-21.0.12.1"
 $NginxDir       = Get-Setting "LB_NGINX_DIR" "C:\Users\Innostax-01-04-25\Downloads\nginx-1.30.4\nginx-1.30.4"
 $JavaOpts       = Get-Setting "LB_JAVA_OPTS" "-Xms256m -Xmx512m -XX:+ExitOnOutOfMemoryError"
 $AppPorts       = @(8081, 8082, 8083, 8084)

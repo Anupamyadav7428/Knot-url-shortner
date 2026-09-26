@@ -53,18 +53,23 @@ public class ShortUrlService {
     }
 
     public LinkResponse createShortUrl(String originalUrl, String alias, String ownerId) {
+        if (originalUrl == null || originalUrl.isBlank()) {
+            throw new IllegalArgumentException("URL is required.");
+        }
+        String normalizedUrl = originalUrl.trim();
+
         if (alias != null && !alias.isBlank()) {
-            return createWithAlias(originalUrl, alias.trim(), ownerId);
+            return createWithAlias(normalizedUrl, alias.trim(), ownerId);
         }
 
         // Reuse this owner's existing mapping for the same URL, instead of
         // inserting a duplicate row. Different owners always get their own row,
         // so one person's link never shows up in someone else's list.
-        return shortUrlRepository.findFirstByOriginalUrlAndOwnerId(originalUrl, ownerId)
+        return shortUrlRepository.findFirstByOriginalUrlAndOwnerId(normalizedUrl, ownerId)
                 .map(this::toResponse)
                 .orElseGet(() -> {
                     UrlShortner urlShortner = new UrlShortner();
-                    urlShortner.setOriginalUrl(originalUrl);
+                    urlShortner.setOriginalUrl(normalizedUrl);
                     urlShortner.setCreatedAt(LocalDateTime.now());
                     urlShortner.setOwnerId(ownerId);
                     urlShortner = shortUrlRepository.save(urlShortner); // assigns the auto-increment id
