@@ -1,4 +1,5 @@
 export const environment = {
-  production: false,
-  apiBaseUrl: 'http://localhost:9090'
+  production: true,
+  apiBaseUrl: (window as Window & { __KNOT_CONFIG__?: { apiBaseUrl?: string } })
+    .__KNOT_CONFIG__?.apiBaseUrl ?? 'https://knot-url-shortner.onrender.com'
 };
