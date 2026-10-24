@@ -1,3 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch/PR cancels the run that's still going
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
   backend:
     name: Backend (build + test)
     runs-on: ubuntu-latest
@@ -65,3 +83,74 @@
           name: backend-jar
           path: loadbalancer/build/libs/*-SNAPSHOT.jar
           retention-days: 7
+
+  frontend:
+    name: Frontend (test + build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Ubuntu 24.04 blocks the unprivileged user namespaces Chrome's sandbox needs
+      - name: Allow headless Chrome sandbox
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Unit tests
+        run: npx ng test --watch=false --browsers=ChromeHeadless
+
+      - name: Production build
+        run: npx ng build --configuration production
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist/frontend/
+          retention-days: 7
+
+  nginx:
+    name: Nginx config check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: nginx -t
+        run: |
+          docker run --rm \
+            -v "$PWD/loadbalancer/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            nginx:stable nginx -t -c /etc/nginx/nginx.conf
+
+  scripts:
+    name: lb.ps1 syntax check
+    # Windows PowerShell 5.1 is what lb.ps1 targets
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse lb.ps1
+        shell: powershell
+        run: |
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            "$PWD\loadbalancer\lb.ps1", [ref]$null, [ref]$errors) | Out-Null
+          if ($errors) {
+            $errors | ForEach-Object { Write-Host "::error file=loadbalancer/lb.ps1,line=$($_.Extent.StartLineNumber)::$($_.Message)" }
+            exit 1
+          }
+          Write-Host "lb.ps1 parses cleanly"
